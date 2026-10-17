@@ -314,7 +314,8 @@
 
     <!-- JavaScript Integrasi API, Search, Edit & Delete -->
     <script>
-        const API_URL = 'http://localhost:5000/api';
+        // Menggunakan path relatif agar fleksibel dibuka dari HP, laptop, maupun server cloud
+        const API_URL = '/api';
         let allBarang = [];
         let allTransaksi = [];
 
