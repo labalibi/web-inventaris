@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventaris Elektro</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-slate-200 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">⚡ Inventaris Komponen Elektro</h1>
+                <p class="text-slate-500 text-sm">Sistem Manajemen Stok & Transaksi Real-time</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="openModalTambah()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1">
+                    ➕ Tambah Barang
+                </button>
+                <button onclick="exportBarangCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1">
+                    📥 Export Stok CSV
+                </button>
+                <button onclick="loadAllData()" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    🔄 Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- STATISTIK RINGKASAN (CARDS) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Card 1: Total Jenis Barang -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Jenis Barang</p>
+                    <h3 id="stat-total-jenis" class="text-2xl font-extrabold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                    📦
+                </div>
+            </div>
+
+            <!-- Card 2: Total Unit Stok -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Unit Stok</p>
+                    <h3 id="stat-total-stok" class="text-2xl font-extrabold text-slate-900 mt-1">0 <span class="text-sm font-normal text-slate-500">pcs</span></h3>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                    📊
+                </div>
+            </div>
+
+            <!-- Card 3: Stok Menipis / Kritis -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Stok Menipis / Kritis</p>
+                    <h3 id="stat-stok-kritis" class="text-2xl font-extrabold text-red-600 mt-1">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-xl">
+                    ⚠️
+                </div>
+            </div>
+        </div>
+
+        <!-- GRID UTAMA: TABEL STOK & FORM TRANSAKSI -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Table Barang (2 Kolom) -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h2 class="text-lg font-bold">Daftar Stok Barang</h2>
+                    <!-- Input Pencarian -->
+                    <div class="relative w-full sm:w-64">
+                        <input 
+                            type="text" 
+                            id="search-input" 
+                            oninput="handleSearch()"
+                            placeholder="Cari nama, kode, atau lokasi..." 
+                            class="w-full pl-9 pr-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                        <span class="absolute left-3 top-2 text-slate-400 text-sm">🔍</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-500 uppercase border-b">
+                            <tr>
+                                <th class="p-3">Kode / Nama</th>
+                                <th class="p-3">Lokasi</th>
+                                <th class="p-3">Stok</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-barang" class="divide-y">
+                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Memuat data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Form Transaksi Stok (1 Kolom) -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+                <h2 class="text-lg font-bold mb-4">Form Transaksi Stok</h2>
+                <form id="form-transaksi" onsubmit="submitTransaksi(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Pilih Barang</label>
+                        <select id="barang_id" required class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm">
+                            <option value="">-- Pilih Barang --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Tipe Transaksi</label>
+                        <select id="tipe" required class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm">
+                            <option value="MASUK">MASUK (Restok)</option>
+                            <option value="KELUAR">KELUAR (Penggunaan)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Jumlah</label>
+                        <input type="number" id="jumlah" min="1" required class="w-full p-2 border rounded-lg text-sm" placeholder="Contoh: 5">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Keterangan</label>
+                        <input type="text" id="keterangan" class="w-full p-2 border rounded-lg text-sm" placeholder="Contoh: Perakitan Modul A">
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">
+                        Simpan Transaksi
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- TABEL RIWAYAT LOG TRANSAKSI (BAGIAN BAWAH) -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">📋 Riwayat Aktivitas Transaksi Terbaru</h2>
+                    <p class="text-slate-400 text-xs">Catatan mutasi keluar-masuk stok barang secara real-time</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportTransaksiCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                        📥 Export Log Transaksi CSV
+                    </button>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-medium">20 Terakhir</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-slate-500 uppercase border-b">
+                        <tr>
+                            <th class="p-3">Waktu</th>
+                            <th class="p-3">Barang</th>
+                            <th class="p-3">Tipe</th>
+                            <th class="p-3">Jumlah</th>
+                            <th class="p-3">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-transaksi" class="divide-y">
+                        <tr><td colspan="5" class="p-4 text-center text-slate-400">Memuat riwayat transaksi...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL POPUP: TAMBAH BARANG BARU -->
+    <div id="modal-barang" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white p-6 rounded-xl max-w-lg w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-900">➕ Tambah Barang Baru</h3>
+                <button onclick="closeModalTambah()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+            </div>
+
+            <form id="form-barang" onsubmit="submitBarangBaru(event)" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Kode Barang *</label>
+                        <input type="text" id="new_kode_barang" required placeholder="Contoh: ELK-CAP-100U" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                        <select id="new_kategori_id" class="w-full p-2 border rounded-lg text-sm bg-slate-50">
+                            <option value="1">Mikrokontroler & Board</option>
+                            <option value="2">Komponen Pasif</option>
+                            <option value="3">Sensor & Modul</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Nama Barang *</label>
+                    <input type="text" id="new_nama_barang" required placeholder="Contoh: Kapasitor Elco 100uF 25V" class="w-full p-2 border rounded-lg text-sm">
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Stok Awal</label>
+                        <input type="number" id="new_stok_saat_ini" min="0" value="0" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Satuan</label>
+                        <input type="text" id="new_satuan" value="pcs" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Stok Min.</label>
+                        <input type="number" id="new_stok_minimum" min="1" value="5" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Lokasi Penyimpanan</label>
+                        <input type="text" id="new_lokasi_penyimpanan" placeholder="Contoh: Laci-D1" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Package / Footprint</label>
+                        <input type="text" id="new_package_footprint" placeholder="Contoh: DIP-8 / SMD 1206" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">URL Datasheet</label>
+                    <input type="url" id="new_datasheet_url" placeholder="https://..." class="w-full p-2 border rounded-lg text-sm">
+                </div>
+
+                <div class="flex justify-end gap-2 border-t pt-3 mt-4">
+                    <button type="button" onclick="closeModalTambah()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold rounded-lg">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg">
+                        Simpan Barang
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL POPUP: EDIT BARANG -->
+    <div id="modal-edit-barang" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white p-6 rounded-xl max-w-lg w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-900">✏️ Edit Data Barang</h3>
+                <button onclick="closeModalEdit()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+            </div>
+
+            <form id="form-edit-barang" onsubmit="submitEditBarang(event)" class="space-y-3">
+                <input type="hidden" id="edit_id">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Kode Barang *</label>
+                        <input type="text" id="edit_kode_barang" required class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                        <select id="edit_kategori_id" class="w-full p-2 border rounded-lg text-sm bg-slate-50">
+                            <option value="1">Mikrokontroler & Board</option>
+                            <option value="2">Komponen Pasif</option>
+                            <option value="3">Sensor & Modul</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Nama Barang *</label>
+                    <input type="text" id="edit_nama_barang" required class="w-full p-2 border rounded-lg text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Stok Minimum</label>
+                        <input type="number" id="edit_stok_minimum" min="1" required class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Lokasi Penyimpanan</label>
+                        <input type="text" id="edit_lokasi_penyimpanan" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Package / Footprint</label>
+                        <input type="text" id="edit_package_footprint" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">URL Datasheet</label>
+                        <input type="url" id="edit_datasheet_url" class="w-full p-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 border-t pt-3 mt-4">
+                    <button type="button" onclick="closeModalEdit()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold rounded-lg">
+                        Batal
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg">
+                        Perbarui Data
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Integrasi API, Search, Edit & Delete -->
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        let allBarang = [];
+        let allTransaksi = [];
+
+        // Modal Controls
+        function openModalTambah() {
+            document.getElementById('modal-barang').classList.remove('hidden');
+        }
+
+        function closeModalTambah() {
+            document.getElementById('modal-barang').classList.add('hidden');
+            document.getElementById('form-barang').reset();
+        }
+
+        function closeModalEdit() {
+            document.getElementById('modal-edit-barang').classList.add('hidden');
+            document.getElementById('form-edit-barang').reset();
+        }
+
+        // Load Semua Data
+        async function loadAllData() {
+            await Promise.all([loadBarang(), loadTransaksi()]);
+        }
+
+        // 1. Ambil Data Barang
+        async function loadBarang() {
+            try {
+                const res = await fetch(`${API_URL}/barang`);
+                const result = await res.json();
+
+                if (result.success) {
+                    allBarang = result.data || [];
+                    updateStats(allBarang);
+                    handleSearch();
+                    renderDropdown(allBarang);
+                }
+            } catch (err) {
+                console.error('Gagal mengambil data barang:', err);
+            }
+        }
+
+        // 2. Ambil Riwayat Transaksi
+        async function loadTransaksi() {
+            try {
+                const res = await fetch(`${API_URL}/transaksi`);
+                const result = await res.json();
+
+                if (result.success) {
+                    allTransaksi = result.data || [];
+                    renderTableTransaksi(allTransaksi);
+                } else {
+                    document.getElementById('table-transaksi').innerHTML = 
+                        `<tr><td colspan="5" class="p-4 text-center text-amber-600">⚠️ Gagal memuat data: ${result.message || 'Endpoint tidak merespons'}</td></tr>`;
+                }
+            } catch (err) {
+                console.error('Gagal mengambil riwayat transaksi:', err);
+                document.getElementById('table-transaksi').innerHTML = 
+                    '<tr><td colspan="5" class="p-4 text-center text-red-500">❌ Gagal terhubung ke server backend</td></tr>';
+            }
+        }
+
+        // 3. Render Tabel Barang dengan Tombol Aksi (Edit & Delete)
+        function renderTableBarang(barangList) {
+            const tbody = document.getElementById('table-barang');
+            if (!barangList || barangList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Barang tidak ditemukan.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = barangList.map(b => {
+                const isKritis = b.stok_saat_ini <= b.stok_minimum;
+                const statusBadge = isKritis 
+                    ? `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Menipis</span>`
+                    : `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">Aman</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">
+                            <div class="font-bold text-slate-900">${b.nama_barang}</div>
+                            <div class="text-xs text-slate-400">${b.kode_barang} | ${b.package_footprint || '-'}</div>
+                        </td>
+                        <td class="p-3 text-slate-600">${b.lokasi_penyimpanan || '-'}</td>
+                        <td class="p-3 font-semibold">${b.stok_saat_ini} ${b.satuan}</td>
+                        <td class="p-3">${statusBadge}</td>
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openModalEdit(${b.id})" class="text-blue-600 hover:text-blue-800 p-1 rounded font-bold text-xs bg-blue-50 px-2 py-1 border border-blue-200">
+                                    ✏️ Edit
+                                </button>
+                                <button onclick="deleteBarang(${b.id}, '${b.nama_barang.replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-800 p-1 rounded font-bold text-xs bg-red-50 px-2 py-1 border border-red-200">
+                                    🗑️ Hapus
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 4. Buka Modal Edit & Isi Data
+        function openModalEdit(id) {
+            const barang = allBarang.find(b => b.id === id);
+            if (!barang) return;
+
+            document.getElementById('edit_id').value = barang.id;
+            document.getElementById('edit_kode_barang').value = barang.kode_barang || '';
+            document.getElementById('edit_nama_barang').value = barang.nama_barang || '';
+            document.getElementById('edit_kategori_id').value = barang.kategori_id || 1;
+            document.getElementById('edit_stok_minimum').value = barang.stok_minimum || 5;
+            document.getElementById('edit_lokasi_penyimpanan').value = barang.lokasi_penyimpanan || '';
+            document.getElementById('edit_package_footprint').value = barang.package_footprint || '';
+            document.getElementById('edit_datasheet_url').value = barang.datasheet_url || '';
+
+            document.getElementById('modal-edit-barang').classList.remove('hidden');
+        }
+
+        // 5. Submit Update Barang (PUT)
+        async function submitEditBarang(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const payload = {
+                kode_barang: document.getElementById('edit_kode_barang').value,
+                nama_barang: document.getElementById('edit_nama_barang').value,
+                kategori_id: parseInt(document.getElementById('edit_kategori_id').value),
+                stok_minimum: parseInt(document.getElementById('edit_stok_minimum').value) || 5,
+                lokasi_penyimpanan: document.getElementById('edit_lokasi_penyimpanan').value,
+                package_footprint: document.getElementById('edit_package_footprint').value,
+                datasheet_url: document.getElementById('edit_datasheet_url').value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/barang/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    closeModalEdit();
+                    loadAllData();
+                } else {
+                    alert('❌ Error: ' + (result.error || result.message));
+                }
+            } catch (err) {
+                alert('Gagal mengedit barang');
+            }
+        }
+
+        // 6. Hapus Barang (DELETE)
+        async function deleteBarang(id, nama) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus "${nama}"? Data transaksi terkait juga akan terhapus.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/barang/${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    loadAllData();
+                } else {
+                    alert('❌ Error: ' + (result.error || result.message));
+                }
+            } catch (err) {
+                alert('Gagal menghapus barang');
+            }
+        }
+
+        // 7. Helper Download CSV
+        function generateCSVDownload(filename, rows) {
+            if (!rows || rows.length === 0) {
+                alert('Tidak ada data yang dapat diekspor!');
+                return;
+            }
+
+            const csvContent = rows.map(e => e.map(val => {
+                let str = val === null || val === undefined ? '' : String(val);
+                str = str.replace(/"/g, '""');
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    str = `"${str}"`;
+                }
+                return str;
+            }).join(',')).join('\n');
+
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Export Functions
+        function exportBarangCSV() {
+            const headers = ['ID', 'Kode Barang', 'Nama Barang', 'Kategori', 'Stok Saat Ini', 'Satuan', 'Stok Minimum', 'Lokasi Penyimpanan', 'Footprint', 'Status'];
+            const dataRows = allBarang.map(b => [
+                b.id, b.kode_barang, b.nama_barang, b.nama_kategori || '-',
+                b.stok_saat_ini, b.satuan, b.stok_minimum, b.lokasi_penyimpanan || '-',
+                b.package_footprint || '-', b.stok_saat_ini <= b.stok_minimum ? 'MENIPIS' : 'AMAN'
+            ]);
+            const today = new Date().toISOString().split('T')[0];
+            generateCSVDownload(`stok_barang_${today}.csv`, [headers, ...dataRows]);
+        }
+
+        function exportTransaksiCSV() {
+            const headers = ['ID', 'Waktu Transaksi', 'Kode Barang', 'Nama Barang', 'Tipe Transaksi', 'Jumlah', 'Keterangan'];
+            const dataRows = allTransaksi.map(t => [
+                t.id, new Date(t.created_at).toLocaleString('id-ID'),
+                t.kode_barang, t.nama_barang, t.tipe, t.jumlah, t.keterangan || '-'
+            ]);
+            const today = new Date().toISOString().split('T')[0];
+            generateCSVDownload(`riwayat_transaksi_${today}.csv`, [headers, ...dataRows]);
+        }
+
+        // Stats & Search
+        function updateStats(barangList) {
+            const totalJenis = barangList.length;
+            const totalStok = barangList.reduce((acc, b) => acc + (parseInt(b.stok_saat_ini) || 0), 0);
+            const totalKritis = barangList.filter(b => (parseInt(b.stok_saat_ini) || 0) <= (parseInt(b.stok_minimum) || 0)).length;
+
+            document.getElementById('stat-total-jenis').innerText = totalJenis;
+            document.getElementById('stat-total-stok').innerHTML = `${totalStok.toLocaleString('id-ID')} <span class="text-sm font-normal text-slate-500">unit</span>`;
+            document.getElementById('stat-stok-kritis').innerText = totalKritis;
+        }
+
+        function handleSearch() {
+            const keyword = document.getElementById('search-input').value.toLowerCase().trim();
+            const filtered = allBarang.filter(b => {
+                const nama = (b.nama_barang || '').toLowerCase();
+                const kode = (b.kode_barang || '').toLowerCase();
+                const lokasi = (b.lokasi_penyimpanan || '').toLowerCase();
+                return nama.includes(keyword) || kode.includes(keyword) || lokasi.includes(keyword);
+            });
+            renderTableBarang(filtered);
+        }
+
+        function renderTableTransaksi(transaksiList) {
+            const tbody = document.getElementById('table-transaksi');
+            if (!transaksiList || transaksiList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada riwayat transaksi.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = transaksiList.map(t => {
+                const isMasuk = t.tipe === 'MASUK';
+                const tipeBadge = isMasuk
+                    ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">➕ MASUK</span>`
+                    : `<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">➖ KELUAR</span>`;
+
+                const wkt = new Date(t.created_at).toLocaleString('id-ID', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+
+                return `
+                    <tr class="hover:bg-slate-50 text-xs sm:text-sm">
+                        <td class="p-3 text-slate-400 whitespace-nowrap">${wkt}</td>
+                        <td class="p-3">
+                            <span class="font-semibold text-slate-800">${t.nama_barang}</span>
+                            <span class="text-slate-400 text-xs block">${t.kode_barang}</span>
+                        </td>
+                        <td class="p-3">${tipeBadge}</td>
+                        <td class="p-3 font-bold ${isMasuk ? 'text-emerald-600' : 'text-amber-600'}">
+                            ${isMasuk ? '+' : '-'}${t.jumlah}
+                        </td>
+                        <td class="p-3 text-slate-500">${t.keterangan || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderDropdown(barangList) {
+            const select = document.getElementById('barang_id');
+            select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
+                barangList.map(b => `<option value="${b.id}">${b.nama_barang} (Sisa: ${b.stok_saat_ini})</option>`).join('');
+        }
+
+        async function submitBarangBaru(e) {
+            e.preventDefault();
+            const payload = {
+                kode_barang: document.getElementById('new_kode_barang').value,
+                nama_barang: document.getElementById('new_nama_barang').value,
+                kategori_id: parseInt(document.getElementById('new_kategori_id').value),
+                stok_saat_ini: parseInt(document.getElementById('new_stok_saat_ini').value) || 0,
+                satuan: document.getElementById('new_satuan').value || 'pcs',
+                stok_minimum: parseInt(document.getElementById('new_stok_minimum').value) || 5,
+                lokasi_penyimpanan: document.getElementById('new_lokasi_penyimpanan').value,
+                package_footprint: document.getElementById('new_package_footprint').value,
+                datasheet_url: document.getElementById('new_datasheet_url').value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/barang`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    closeModalTambah();
+                    loadAllData();
+                } else {
+                    alert('❌ Error: ' + (result.error || result.message));
+                }
+            } catch (err) {
+                alert('Gagal menyimpan barang baru');
+            }
+        }
+
+        async function submitTransaksi(e) {
+            e.preventDefault();
+            const payload = {
+                barang_id: parseInt(document.getElementById('barang_id').value),
+                tipe: document.getElementById('tipe').value,
+                jumlah: parseInt(document.getElementById('jumlah').value),
+                keterangan: document.getElementById('keterangan').value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/transaksi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    document.getElementById('form-transaksi').reset();
+                    loadAllData();
+                } else {
+                    alert('❌ Error: ' + (result.error || result.message));
+                }
+            } catch (err) {
+                alert('Gagal mengirim transaksi');
+            }
+        }
+
+        // Inisialisasi awal
+        loadAllData();
+    </script>
+</body>
+</html>
